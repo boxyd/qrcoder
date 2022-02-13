@@ -15,13 +15,42 @@ import (
 
 func TestGenerate(t *testing.T) {
 	// NOTE: generating almost all QR codes
-	for i := 1; i <= 20; i++ {
+	for i := 1; i <= 3; i++ {
 		url := fmt.Sprintf("http://35.176.98.167:8080/box/%04d.html", i)
 		//	testImage := getImage("./assets/google.png")
 
-		actual, err := Generate(url, "boxyd", i)
+		actual, err := Generate(url, "BOXYD", i)
 
 		path := fmt.Sprintf("./assets/box_%04d.png", i)
+		img, err := os.Create(path)
+		if err != nil {
+			panic(err)
+		}
+
+		decoded, _, _ := image.Decode(bytes.NewReader(actual))
+
+		err = png.Encode(img, decoded)
+		if err != nil {
+			panic(err)
+		}
+
+		log.Printf("Generated box %04d\n---------------\n", i)
+
+		//	assert.Equal(t, testImage, actual)
+		assert.NotEmpty(t, actual)
+		assert.NoError(t, err)
+	}
+}
+
+func TestGenerateSmall(t *testing.T) {
+	// NOTE: generating almost all QR codes
+	for i := 1; i <= 3; i++ {
+		url := fmt.Sprintf("http://35.176.98.167:8080/box/%04d.html", i)
+		//	testImage := getImage("./assets/google.png")
+
+		actual, err := GenerateWithMagnitude(url, "BOXYD", i, 4)
+
+		path := fmt.Sprintf("./assets/box_%04d_small.png", i)
 		img, err := os.Create(path)
 		if err != nil {
 			panic(err)
@@ -48,7 +77,7 @@ func TestGenerateWithColor(t *testing.T) {
 
 	grey := color.RGBA{54, 54, 54, 0xff}
 
-	actual, err := GenerateWithColor(url, "boxyd", 1, orange, grey)
+	actual, err := GenerateWithColor(url, "boxyd", 1, 1, orange, grey)
 
 	/*
 		img, err := os.Create("./test_image_0001.png")

@@ -18,15 +18,22 @@ import (
 )
 
 var (
-	pxSize   = 1024
-	fontSize = 150.0
+	defaultPxSize   = 1024
+	defaultFontSize = 150
 )
 
+// Generate creates a new QR code.
 func Generate(url, label string, index int) ([]byte, error) {
-	return GenerateWithColor(url, label, index, color.Black, color.White)
+	return GenerateWithColor(url, label, index, 1, color.Black, color.White)
 }
 
-func GenerateWithColor(url, label string, index int, foreground, background color.Color) ([]byte, error) {
+// GenerateWithMagnitude creates a new QR code,
+// but smaller by a magnitude.
+func GenerateWithMagnitude(url, label string, index, magnitude int) ([]byte, error) {
+	return GenerateWithColor(url, label, index, magnitude, color.Black, color.White)
+}
+
+func GenerateWithColor(url, label string, index, magnitude int, foreground, background color.Color) ([]byte, error) {
 	newQR, err := qrcode.New(url, qrcode.High)
 	if err != nil {
 		return nil, err
@@ -35,7 +42,7 @@ func GenerateWithColor(url, label string, index int, foreground, background colo
 	newQR.ForegroundColor = foreground
 	newQR.BackgroundColor = background
 
-	pngf, err := newQR.PNG(pxSize)
+	pngf, err := newQR.PNG(defaultPxSize / magnitude)
 	if err != nil {
 		return nil, err
 	}
@@ -46,20 +53,20 @@ func GenerateWithColor(url, label string, index int, foreground, background colo
 	}
 
 	img := ImageToRGBA(imgf)
-	labelLeft, err := generateLabel(img, foreground, 0, int(fontSize), label)
+	labelLeft, err := generateLabel(img, foreground, 0, defaultFontSize, magnitude, label)
 	if err != nil {
 		return nil, err
 	}
 
 	indexToString := indexer(index)
 
-	labelRight, err := generateLabel(img, foreground, 0, int(fontSize), indexToString)
+	labelRight, err := generateLabel(img, foreground, 0, defaultFontSize, magnitude, indexToString)
 	if err != nil {
 		return nil, err
 	}
 
-	combineLabels := combineToRight(labelLeft, labelRight)
-	finalImage := combineToBottom(img, combineLabels)
+	combineLabels := combineToRight(labelLeft, labelRight, magnitude)
+	finalImage := combineToBottom(img, combineLabels, magnitude)
 
 	buf := new(bytes.Buffer)
 
@@ -71,8 +78,8 @@ func GenerateWithColor(url, label string, index int, foreground, background colo
 	return buf.Bytes(), nil
 }
 
-func generateLabel(img *image.RGBA, color color.Color, x, y int, label string) (*image.RGBA, error) {
-	point := fixed.Point26_6{X: fixed.Int26_6(x * 64), Y: fixed.Int26_6(y * 64)}
+func generateLabel(img *image.RGBA, color color.Color, x, y, magnitude int, label string) (*image.RGBA, error) {
+	point := fixed.Point26_6{X: fixed.Int26_6((x / magnitude) * 64), Y: fixed.Int26_6((y / magnitude) * 64)}
 
 	// Read the font data.
 	pwd, err := os.Getwd()
@@ -93,15 +100,16 @@ func generateLabel(img *image.RGBA, color color.Color, x, y int, label string) (
 	h := font.HintingNone
 	dpi := 72.0
 
-	// NOTE: Below needs to be recalculated as now it's just a magical number that works.
-	magicSize := 670
-	textImg := image.NewRGBA(image.Rect(0, 0, magicSize, int(fontSize)+20))
+	// TODO: Below needs to be recalculated as now it's just a magical number that works.
+	magicSize := 670 / magnitude
+	newImgSize := (defaultFontSize + 20) / magnitude
+	textImg := image.NewRGBA(image.Rect(0, 0, magicSize, newImgSize))
 
 	d := &font.Drawer{
 		Dst: textImg,
 		Src: image.NewUniform(color),
 		Face: truetype.NewFace(f, &truetype.Options{
-			Size:    fontSize,
+			Size:    float64(defaultFontSize / magnitude),
 			DPI:     dpi,
 			Hinting: h,
 		}),
@@ -112,10 +120,13 @@ func generateLabel(img *image.RGBA, color color.Color, x, y int, label string) (
 	return textImg, nil
 }
 
-func combineToBottom(img1, img2 *image.RGBA) *image.RGBA {
+func combineToBottom(img1, img2 *image.RGBA, magnitude int) *image.RGBA {
+	pxSize := defaultPxSize / magnitude
+	fontSize := defaultFontSize / magnitude
+
 	sp := image.Point{X: 0, Y: img1.Bounds().Dy()}
 	rt := image.Rectangle{sp, sp.Add(img2.Bounds().Size())}
-	r := image.Rectangle{image.Point{0, 0}, image.Point{pxSize, pxSize + int(fontSize)}}
+	r := image.Rectangle{image.Point{0, 0}, image.Point{pxSize, pxSize + fontSize}}
 	rgba := image.NewRGBA(r)
 
 	draw.Draw(rgba, img1.Bounds(), img1, image.Point{0, 0}, draw.Src)
@@ -124,10 +135,13 @@ func combineToBottom(img1, img2 *image.RGBA) *image.RGBA {
 	return rgba
 }
 
-func combineToRight(img1, img2 *image.RGBA) *image.RGBA {
+func combineToRight(img1, img2 *image.RGBA, magnitude int) *image.RGBA {
+	pxSize := defaultPxSize / magnitude
+	fontSize := defaultFontSize / magnitude
+
 	sp := image.Point{X: img1.Bounds().Dx(), Y: 0}
 	rt := image.Rectangle{sp, sp.Add(img2.Bounds().Size())}
-	r := image.Rectangle{image.Point{0, 0}, image.Point{pxSize, pxSize + int(fontSize)}}
+	r := image.Rectangle{image.Point{0, 0}, image.Point{pxSize, pxSize + fontSize}}
 	rgba := image.NewRGBA(r)
 
 	draw.Draw(rgba, img1.Bounds(), img1, image.Point{0, 0}, draw.Src)
