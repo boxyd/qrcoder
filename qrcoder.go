@@ -23,17 +23,34 @@ var (
 )
 
 // Generate creates a new QR code.
+// Returns a []byte formatted as .png; requires an url for the QR code,
+// label that will be printed on the code and an index for the QR code.
+//
+// Label is limited to 5 characters for now as the image is tailored
+// to that size.
 func Generate(url, label string, index int) ([]byte, error) {
 	return GenerateWithColor(url, label, index, 1, color.Black, color.White)
 }
 
 // GenerateWithMagnitude creates a new QR code,
 // but smaller by a magnitude.
+// Same as Generate, returns a []byte formatted as png.
+//
+// Magnitude is inverted, meaning the bigger the magnitude,
+// the smaller the QR code will be.
 func GenerateWithMagnitude(url, label string, index, magnitude int) ([]byte, error) {
 	return GenerateWithColor(url, label, index, magnitude, color.Black, color.White)
 }
 
+// GenerateWithColor creates a new QR code using custom colors.
+// Returns a []byte formatted as png.
+// Same as GenerateWithMagnitude, extended with foreground and background color
+// which has to be of type color.Color.
 func GenerateWithColor(url, label string, index, magnitude int, foreground, background color.Color) ([]byte, error) {
+	if len(label) > 5 {
+		return nil, fmt.Errorf("Label of %v characters is too big, limited to 5 characters", len(label))
+	}
+
 	newQR, err := qrcode.New(url, qrcode.High)
 	if err != nil {
 		return nil, err
@@ -150,6 +167,8 @@ func combineToRight(img1, img2 *image.RGBA, magnitude int) *image.RGBA {
 	return rgba
 }
 
+// ImageToRGBA is a utilify function that allows for conversion
+// from image.Image to *image.RGBA
 func ImageToRGBA(im image.Image) *image.RGBA {
 	dst := image.NewRGBA(im.Bounds())
 	draw.Draw(dst, im.Bounds(), im, im.Bounds().Min, draw.Src)

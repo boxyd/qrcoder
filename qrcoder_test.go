@@ -150,3 +150,21 @@ func TestIndexer(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	})
 }
+
+func TestGenerateWithBiggerLabel(t *testing.T) {
+	t.Run("GenerateWithColor errors out on a label with 10 characters", func(t *testing.T) {
+		label := "ihavefivec"
+		assert.Equal(t, 10, len(label))
+
+		_, err := GenerateWithColor("", label, 1, 1, color.Black, color.Black)
+		assert.Error(t, err)
+	})
+
+	t.Run("GenerateWithColor works with label of 3 characters", func(t *testing.T) {
+		label := "123"
+		assert.Equal(t, 3, len(label))
+
+		_, err := GenerateWithColor("", label, 1, 1, color.Black, color.Black)
+		assert.Error(t, err)
+	})
+}
